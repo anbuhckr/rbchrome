@@ -1,6 +1,6 @@
 # rbchrome
 
-[![PyPI](https://img.shields.io/pypi/pyversions/pychrome.svg)](https://github.com/anbuhckr/rbchrome)
+[![PyPI](https://img.shields.io/pypi/pyversions/pyppeteer.svg)](https://github.com/anbuhckr/rbchrome)
 
 A Python Package for the Google Chrome Dev Protocol
 
