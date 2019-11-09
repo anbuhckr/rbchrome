@@ -27,7 +27,7 @@ setup(
     description="A Python Package for the Google Chrome Dev Protocol",
     long_description=readme,
     author="anbuhckr",
-    author_email='fate0@fatezero.org',
+    author_email='anbu.hckr@hotmail.com',
     url='https://github.com/anbuhckr/rbchrome',
     packages=find_packages(),
     package_dir={},    
