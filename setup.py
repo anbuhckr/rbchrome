@@ -37,7 +37,7 @@ setup(
     zip_safe=False,
     keywords='rbchrome',
     classifiers=[
-        'Development Status :: 1 - Production/Stable',
+        'Development Status :: 2 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Natural Language :: English',        
