@@ -16,7 +16,7 @@ A Python Package for the Google Chrome Dev Protocol
 To install rbchrome from GitHub:
 
 ```
-$ pip install -U git+https://github.com/anbuhckr/rbchrome.git
+$ pip install -U git+ssh://git@github.com/anbuhckr/rbchrome.git
 ```
 
 ## Getting Started
