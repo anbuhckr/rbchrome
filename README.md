@@ -32,7 +32,7 @@ options = [
     "--ignore-certificate-errors",
     "--ignore-ssl-errors",
 ]
-browser = pychrome.Browser(headless=True, rb_options=options)
+browser = rbchrome.Browser(headless=True, rb_options=options)
 browser.set_listener("Network.requestWillBeSent", request_will_be_sent)
 browser.start()
 browser.call_method("Network.enable")
