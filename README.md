@@ -59,4 +59,3 @@ more methods or events could be found in
 
 * [pychrome](https://github.com/fate0/pychrome/)
 * [chrome-remote-interface](https://github.com/cyrus-and/chrome-remote-interface/)
-* [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/tot/)
