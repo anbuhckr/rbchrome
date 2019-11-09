@@ -35,9 +35,9 @@ options = [
 browser = rbchrome.Browser(headless=True, rb_options=options)
 browser.set_listener("Network.requestWillBeSent", request_will_be_sent)
 browser.start()
-browser.call_method("Network.enable")
+browser.run_command("Network.enable")
 try:
-    browser.call_method("Page.navigate", url="https://github.com/anbuhckr/rbchrome", _timeout=10)
+    browser.run_command("Page.navigate", url="https://github.com/anbuhckr/rbchrome", _timeout=10)
     time.sleep(5)
 except KeyboardInterrupt:
     driver.stop()
