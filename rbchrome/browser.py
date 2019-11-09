@@ -18,20 +18,20 @@ from subprocess import Popen, PIPE, STDOUT
 from .exceptions import *
 
 class GenericAttr(object):
-    def __init__(self, name, tab):
+    def __init__(self, name, browser):
         self.__dict__["name"] = name
-        self.__dict__["tab"] = tab
+        self.__dict__["browser"] = browser
 
     def __getattr__(self, item):
         method_name = f"{self.name}.{item}"
-        event_listener = self.tab.get_listener(method_name)
+        event_listener = self.browser.get_listener(method_name)
 
         if event_listener:
             return event_listener
-        return functools.partial(self.tab.call_method, method_name)
+        return functools.partial(self.browser.run_command, method_name)
 
     def __setattr__(self, key, value):
-        self.tab.set_listener(f"{self.name}.{key}", value)
+        self.browser.set_listener(f"{self.name}.{key}", value)
         
 class Browser(object):
     def __init__(self, headless=False, rb_options=[]):
@@ -73,7 +73,7 @@ class Browser(object):
             options.append("--disable-setuid-sandbox")            
         options.append("about:blank")
         options.append(f"--remote-debugging-port={self.port}")
-        if self.headles:
+        if self.headless:
             options.append("--headless")        
         options.append("--disable-background-networking")
         options.append("--enable-features=NetworkService,NetworkServiceInProcess")
