@@ -37,7 +37,7 @@ browser.set_listener("Network.requestWillBeSent", request_will_be_sent)
 browser.start()
 browser.run_command("Network.enable")
 try:
-    browser.run_command("Page.navigate", url="https://github.com/anbuhckr/rbchrome", _timeout=10)
+    browser.run_command("Page.navigate", url="https://anbuhckr.github.io/", _timeout=10)
     time.sleep(5)
 except KeyboardInterrupt:
     driver.stop()
