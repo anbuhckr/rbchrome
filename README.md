@@ -1,4 +1,4 @@
-# pychrome
+# rbchrome
 
 [![PyPI](https://img.shields.io/pypi/pyversions/pychrome.svg)](https://github.com/anbuhckr/rbchrome)
 
@@ -22,7 +22,7 @@ $ pip install -U git+https://github.com/anbuhckr/rbchrome.git
 ## Getting Started
 
 ``` python
-import pychrome
+import rbchrome
 
 # create a browser instance
 browser = pychrome.Browser(url="http://127.0.0.1:9222")
@@ -58,7 +58,7 @@ browser.close_tab(tab)
 or (alternate syntax)
 
 ``` python
-import pychrome
+import rbchrome
 
 browser = pychrome.Browser(url="http://127.0.0.1:9222")
 tab = browser.new_tab()
