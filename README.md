@@ -40,7 +40,7 @@ try:
     browser.run_command("Page.navigate", url="https://anbuhckr.github.io/", _timeout=10)
     time.sleep(5)
 except KeyboardInterrupt:
-    driver.stop()
+    browser.stop()
 except TimeoutException:
     print("Browser Timeout!!!")
     pass
