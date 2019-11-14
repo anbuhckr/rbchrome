@@ -39,7 +39,7 @@ browser.start()
 browser.send("Network.enable")
 browser.send("Page.enable")
 try:
-    browser.get("https://anbuhckr.github.io/", timeout=30)
+    browser.get("https://anbuhckr.github.io/", reff=None, timeout=30)
     time.sleep(5)
 except KeyboardInterrupt:
     browser.stop()
