@@ -29,52 +29,21 @@ def request_will_be_sent(**kwargs):
     print(f"loading: {kwargs.get('request').get('url')}")
 
 options = [
-    "--ignore-certificate-errors",
-    "--ignore-ssl-errors",
+    "--disable-gpu",
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
 ]
 browser = rbchrome.Browser(headless=True, rb_options=options)
-browser.Network.requestWillBeSent = request_will_be_sent
+browser.listen("Network.requestWillBeSent", request_will_be_sent)
 browser.start()
-browser.Network.enable()
+browser.send("Network.enable")
+browser.send("Page.enable")
 try:
-    browser.Page.navigate(url="https://anbuhckr.github.io/", _timeout=10)
+    browser.get("https://anbuhckr.github.io/", timeout=30)
     time.sleep(5)
 except KeyboardInterrupt:
     browser.stop()
-except TimeoutException:
-    print("Browser Timeout!!!")
-    pass
-except Exception as e:
-    print(e)
-    pass
-finally:
-    browser.stop()
-
-```
-
-or (alternate syntax)
-
-``` python
-import rbchrome
-import time
-
-def request_will_be_sent(**kwargs):
-    print(f"loading: {kwargs.get('request').get('url')}")
-
-options = [
-    "--ignore-certificate-errors",
-    "--ignore-ssl-errors",
-]
-browser = rbchrome.Browser(headless=True, rb_options=options)
-browser.set_listener("Network.requestWillBeSent", request_will_be_sent)
-browser.start()
-browser.run_command("Network.enable")
-try:
-    browser.run_command("Page.navigate", url="https://anbuhckr.github.io/", _timeout=10)
-    time.sleep(5)
-except KeyboardInterrupt:
-    browser.stop()
-except TimeoutException:
+except rbchrome.TimeoutException:
     print("Browser Timeout!!!")
     pass
 except Exception as e:
