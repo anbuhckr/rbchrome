@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import time
 import json
 import os
+import base64
 from urllib.request import urlopen
 from urllib.error import URLError
 from .cdp import Cdp
@@ -63,6 +64,26 @@ class Browser(object):
             self.cdp.call_method("Page.navigate", url=url)
         time.sleep(0.9)
         self.time_out_check(timeout)
+        
+    def takeScreenShoot(self):
+        script = """
+        ({
+            width: Math.max(window.innerWidth, document.body.scrollWidth, document.documentElement.scrollWidth)|0,
+            height: Math.max(innerHeight, document.body.scrollHeight, document.documentElement.scrollHeight)|0,
+            deviceScaleFactor: window.devicePixelRatio || 1,
+            mobile: typeof window.orientation !== 'undefined'
+        })
+        """
+        response = self.cdp.call_method("Runtime.evaluate", returnByValue=True, expression=script)
+        result = response["result"]["value"]    
+        val_item = [v for k,v in result.items()]                  
+        self.cdp.call_method("Emulation.setDeviceMetricsOverride", width=val_item[0], height=val_item[1], deviceScaleFactor=val_item[2], mobile=val_item[3])        
+        screenshot = self.cdp.call_method("Page.captureScreenshot", format="png", fromSurface=True)
+        self.cdp.call_method("Emulation.clearDeviceMetricsOverride")
+        png = base64.b64decode(screenshot["data"])
+        with open("screenshot.png", "wb") as f:
+            f.write(png)
+        return True
 
     def listen(self, event, callback):
         self.cdp.set_listener(event, callback)    
