@@ -84,6 +84,11 @@ class Browser(object):
         with open("screenshot.png", "wb") as f:
             f.write(png)
         return True
+    
+    def getTitle(self):        
+        response = self.run_command("Runtime.evaluate", expression="document.title")        
+        result = response["result"]["value"]                   
+        return result
 
     def listen(self, event, callback):
         self.cdp.set_listener(event, callback)    
