@@ -86,7 +86,7 @@ class Browser(object):
         return True
     
     def getTitle(self):        
-        response = self.run_command("Runtime.evaluate", expression="document.title")        
+        response = self.cdp.call_method("Runtime.evaluate", expression="document.title")        
         result = response["result"]["value"]                   
         return result
 
