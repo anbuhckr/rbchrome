@@ -89,6 +89,11 @@ class Browser(object):
         response = self.cdp.call_method("Runtime.evaluate", expression="document.title")        
         result = response["result"]["value"]                   
         return result
+    
+    def runJs(self, script):        
+        response = self.cdp.call_method("Runtime.evaluate", expression=script)        
+        result = response["result"]["value"]                   
+        return result
 
     def listen(self, event, callback):
         self.cdp.set_listener(event, callback)    
