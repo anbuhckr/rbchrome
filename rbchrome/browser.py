@@ -16,25 +16,24 @@ from .exceptions import *
 class Browser(object):
     def __init__(self, url=None, *args, **kwargs):
         self.service = None
-        self.timeout_stats = False
+        self._ready_state = 'loading'
         if not url:            
             self.service = Service(*args, **kwargs)
             url = self.service.url
         self.dev_url = url
         rsp = self.get_ws_endpoint()
         self.cdp = Cdp(rsp)
-        self.cdp.set_listener("Page.frameStoppedLoading", self.on_load_finished)    
-
-    def on_load_finished(self, **kwargs):        
-        self.timeout_stats = True
+        #self.cdp.set_listener("Page.frameStoppedLoading", self.on_load_finished)    
 
     def time_out_check(self, timeout):        
         count = 0
-        while not self.timeout_stats:
+        while not self._ready_state == 'complete':
             count += 1
             if count == timeout:
-                self.timeout_stats = True
-                raise TimeoutException()                
+                self._ready_state  = 'complete'
+                raise TimeoutException()
+            script  = self.cdp.call_method("Runtime.evaluate", expression="document.readyState")
+            self._ready_state = script['result']['value']
             time.sleep(1)     
 
     def get_ws_endpoint(self):
@@ -62,7 +61,7 @@ class Browser(object):
             self.cdp.call_method("Page.navigate", url=url, referrer=reff)
         else:
             self.cdp.call_method("Page.navigate", url=url)
-        time.sleep(0.9)
+        time.sleep(0.5)
         self.time_out_check(timeout)
         
     def takeScreenShoot(self):
