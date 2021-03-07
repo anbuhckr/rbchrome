@@ -33,11 +33,11 @@ setup(
     package_dir={},    
     include_package_data=True,
     install_requires=requirements,
-    license="BSD license",
+    license="GNU GENERAL PUBLIC LICENSE",
     zip_safe=False,
     keywords='rbchrome',
     classifiers=[
-        'Development Status :: 3 - Production/Stable',
+        'Development Status :: 4 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: BSD License',
         'Natural Language :: English',        
