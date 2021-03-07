@@ -1,112 +1,157 @@
 #! /usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals
-
-import time
 import json
-import os
-import base64
+import warnings
+import threading
+import queue
+import websocket
+
 from urllib.request import urlopen
-from urllib.error import URLError
-from .cdp import Cdp
 from .service import Service
-from .exceptions import *
 
-class Browser(object):
-    def __init__(self, url=None, *args, **kwargs):
-        self.service = None
-        self._ready_state = 'loading'
-        if not url:            
-            self.service = Service(*args, **kwargs)
-            url = self.service.url
-        self.dev_url = url
-        rsp = self.get_ws_endpoint()
-        self.cdp = Cdp(rsp)
-        #self.cdp.set_listener("Page.frameStoppedLoading", self.on_load_finished)    
+__all__ = ["Browser"]
 
-    def time_out_check(self, timeout):        
-        count = 0
-        while not self._ready_state == 'complete':
-            count += 1
-            if count == timeout:
-                self._ready_state  = 'complete'
-                raise TimeoutException()
-            script  = self.cdp.call_method("Runtime.evaluate", expression="document.readyState")
-            self._ready_state = script['result']['value']
-            time.sleep(1)     
-
-    def get_ws_endpoint(self):
-        url = f"{self.dev_url}/json/new?"       
-        while True:
-            time.sleep(0.1)
-            try:
-                with urlopen(url) as f:
-                    data = json.loads(f.read().decode())
-                break
-            except URLError:
-                continue
-        else:
-            raise Exception("Browser closed unexpectedly!")        
-        return data['webSocketDebuggerUrl']
-
-    def start(self):           
-        self.cdp.start()
-
-    def send(self, method, **kwargs):                 
-        self.cdp.call_method(method, **kwargs)
-
-    def get(self, url, reff=None, timeout=30):        
-        if reff:
-            self.cdp.call_method("Page.navigate", url=url, referrer=reff)
-        else:
-            self.cdp.call_method("Page.navigate", url=url)
-        time.sleep(0.5)
-        self.time_out_check(timeout)
+class Browser:
+    
+    def __init__(self, loop=None, opts=[]):       
+        self.service = Service(opts)            
+        self.dev_url = self.service.url
+        self.tab_id = None
+        self._cur_id = 1000
+        self.started = False
+        self.stopped = False
+        self.connected = False
+        self.event_handlers = {}
+        self.method_results = {}
+        self.event_queue = queue.Queue()
+        self._recv_th = threading.Thread(target=self._recv_loop)
+        self._recv_th.daemon = True
+        self._handle_event_th = threading.Thread(target=self._handle_event_loop)
+        self._handle_event_th.daemon = True
         
-    def takeScreenShoot(self):
-        script = """
-        ({
-            width: Math.max(window.innerWidth, document.body.scrollWidth, document.documentElement.scrollWidth)|0,
-            height: Math.max(innerHeight, document.body.scrollHeight, document.documentElement.scrollHeight)|0,
-            deviceScaleFactor: window.devicePixelRatio || 1,
-            mobile: typeof window.orientation !== 'undefined'
-        })
-        """
-        response = self.cdp.call_method("Runtime.evaluate", returnByValue=True, expression=script)
-        result = response["result"]["value"]    
-        val_item = [v for k,v in result.items()]                  
-        self.cdp.call_method("Emulation.setDeviceMetricsOverride", width=val_item[0], height=val_item[1], deviceScaleFactor=val_item[2], mobile=val_item[3])        
-        screenshot = self.cdp.call_method("Page.captureScreenshot", format="png", fromSurface=True)
-        self.cdp.call_method("Emulation.clearDeviceMetricsOverride")
-        png = base64.b64decode(screenshot["data"])
-        with open("screenshot.png", "wb") as f:
-            f.write(png)
-        return True
-    
-    def getTitle(self):        
-        response = self.cdp.call_method("Runtime.evaluate", expression="document.title")        
-        result = response["result"]["value"]                   
-        return result
-    
-    def runJs(self, script):        
-        response = self.cdp.call_method("Runtime.evaluate", expression=script)        
-        result = response["result"]["value"]                   
-        return result
+    def ws_endpoint(self):
+        with urlopen(f'{self.dev_url}/json/new?') as f:
+            data = json.loads(f.read().decode())
+            self.tab_id = data.get('id')
+            return data.get('webSocketDebuggerUrl')
+        
+    def close_tab(self):
+        with urlopen(f"{self.dev_url}/json/close/{self.tab_id}") as f:
+            data = f.read().decode()
+            return
+        
+    def ws_send(self, message):
+        if 'id' not in message:
+            self._cur_id += 1
+            message['id'] = self._cur_id
+        message_json = json.dumps(message)        
+        try:
+            self.method_results[message['id']] = queue.Queue()            
+            self._ws.send(message_json)
+            while not self.stopped:
+                try:
+                    return self.method_results[message['id']].get(timeout=1)
+                except queue.Empty:                    
+                    continue
+            raise Exception(f"User abort, call stop() when calling {message['method']}")                           
+        finally:
+            self.method_results.pop(message['id'], None)
 
-    def listen(self, event, callback):
-        self.cdp.set_listener(event, callback)    
+    def _recv_loop(self):
+        while not self.stopped:
+            try:
+                self._ws.settimeout(1)
+                message_json = self._ws.recv()
+                message = json.loads(message_json)
+            except:
+                continue            
+            if "method" in message:
+                self.event_queue.put(message)
+            elif "id" in message:
+                if message["id"] in self.method_results:
+                    self.method_results[message['id']].put(message)
+            else:  
+                warnings.warn(f"unknown message: {message}")
+
+    def _handle_event_loop(self):
+        while not self.stopped:
+            try:
+                event = self.event_queue.get(timeout=1)
+            except queue.Empty:
+                continue
+            if event['method'] in self.event_handlers:
+                try:
+                    self.event_handlers[event['method']](**event['params'])
+                except Exception:
+                    print(f"callback {event['method']} exception")
+            self.event_queue.task_done()
+
+    def send(self, _method, *args, **kwargs):
+        if not self.started:
+            raise Exception("Cannot call method before it is started")
+        if args:
+            raise Exception("the params should be key=value format")
+        if self.stopped:
+            raise Exception("browser has been stopped")        
+        result = self.ws_send({"method": _method, "params": kwargs})
+        if 'result' not in result and 'error' in result:
+            warnings.warn(f"{_method} error: {result['error']['message']}")
+            raise Exception(f"calling method: {_method} error: {result['error']['message']}")
+        return result['result']
+
+    def on(self, event, callback):
+        if not callback:
+            return self.event_handlers.pop(event, None)
+        if not callable(callback):
+            raise Exception("callback should be callable")
+        self.event_handlers[event] = callback
+        return
+
+    def start(self):
+        if self.started:
+            return
+        self.stopped = False
+        self.started = True
+        self.connected = False
+        self._websocket_url = self.ws_endpoint()                            
+        self._ws = websocket.create_connection(self._websocket_url, enable_multithread=True)
+        if self._ws:
+            self.connected = True
+            self._recv_th.start()
+            self._handle_event_th.start()        
+        return
 
     def stop(self):        
-        self.cdp.stop()
-        self.service.stop()
+        if self.stopped:
+            return
+        if not self.started:
+            raise Exception("Browser is not running")    
+        self.started = False
+        self.stopped = True
+        if self.connected and self._ws:
+            self._ws.close()
+            self.close_tab()
+            self._recv_th.join()
+            self._handle_event_th.join()
+            self.connected = False                
+        self.service.stop()             
+        return
+                            
+    def __str__(self):
+        return f'<Browser {self.dev_url}>' 
+
+    __repr__ = __str__    
 
     def __enter__(self):
-        return self    
-   
+        return self
+    
     def __exit__(self, *args):
+        self.__del__()    
+        
+    def __del__(self):
         try:
             self.stop()
         except Exception:
             pass
-
+                            
+                            
