@@ -1,5 +1,4 @@
 #! /usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 import errno
 import os
@@ -9,65 +8,80 @@ import time
 import socket
 from tempfile import TemporaryDirectory
 
-class Service(object):
-    def __init__(self, port=0, env=None, start_error_message="",
-                rb_options=[], headless=False):
-        if 'nt' in os.name:
-            self.path = find('chrome.exe')
-        else:
-            self.path = 'google-chrome'
-        self.tmpdir = TemporaryDirectory()              
-        self.port = port
-        if self.port == 0:
-            self.port = free_port()           
-        self.service_args = rb_options       
-        self.service_args += ['about:blank', '--disable-background-networking',
-                                '--disable-client-side-phishing-detection',
-                                '--disable-default-apps', '--disable-hang-monitor',
-                                '--disable-infobars', '--disable-popup-blocking',
-                                '--disable-prompt-on-repost', '--disable-sync',
-                                '--password-store=basic', '--no-first-run',                             
-                                '--ignore-ssl-errors', '--ignore-certificate-errors', 
-                                '--metrics-recording-only', '--use-mock-keychain', 
-                                '--user-data-dir='  + self.tmpdir.name]            
-        self.service_args += ['--remote-debugging-port=' + str(self.port)]
-        self.service_args += ['--headless'] if headless else []
-        self.start_error_message = start_error_message        
-        self.env = env or os.environ                 
-        self.start()
+DEFAULT_ARGS = [
+    'about:blank',
+    '--disable-background-networking',
+    '--disable-background-timer-throttling',
+    '--disable-breakpad',
+    '--disable-browser-side-navigation',
+    '--disable-client-side-phishing-detection',
+    '--disable-default-apps',
+    '--disable-infobars',
+    '--disable-dev-shm-usage',
+    '--disable-extensions',
+    '--disable-features=site-per-process',
+    '--disable-hang-monitor',
+    '--disable-popup-blocking',
+    '--disable-prompt-on-repost',
+    '--disable-sync',
+    '--disable-translate',
+    '--metrics-recording-only',
+    '--no-first-run',
+    '--safebrowsing-disable-auto-update',
+    '--enable-automation',
+    '--password-store=basic',
+    '--use-mock-keychain',
+    '--ignore-ssl-errors',
+    '--ignore-certificate-errors',
+]
 
-    @property
-    def url(self):
-        return "http://%s" % join_host_port('localhost', self.port)
+class Service(object):
+    def __init__(self, opts=[]):
+        self.path = 'google-chrome'
+        if 'nt' in os.name:
+            self.path = self.find()           
+        self.tmpdir = TemporaryDirectory()              
+        self.port = self.free_port()
+        self.service_args = DEFAULT_ARGS
+        self.service_args += opts      
+        self.service_args += [f'--user-data-dir={self.tmpdir.name}']            
+        self.service_args += [f'--remote-debugging-port={self.port}']
+        self.env = os.environ
+        self.url = f"http://localhost:{self.port}"
+        start_error_message = ""
+        self.process = None
+        self.start()        
+
+    def find(self):        
+        name = 'chrome.exe'
+        for root, dirs, files in os.walk('C:/'):
+            if name in files:
+                return os.path.join(root, name).replace('\\', '/')
+
+    def free_port(self):
+        free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        free_socket.bind(('0.0.0.0', 0))
+        free_socket.listen(5)
+        port = free_socket.getsockname()[1]
+        free_socket.close()
+        return port
 
     def start(self):
         try:
             cmd = [self.path]
             cmd.extend(self.service_args)
-            self.process = Popen(cmd, env=self.env,
-                                            close_fds=platform.system() != 'Windows',
-                                            stdout=PIPE,
-                                            stderr=PIPE,
-                                            stdin=PIPE)
+            self.process = Popen(cmd, env=self.env, close_fds=platform.system() != 'Windows', stdout=PIPE, stderr=PIPE, stdin=PIPE)
         except TypeError:
             raise
         except OSError as err:
             if err.errno == errno.ENOENT:
-                raise ChromeException(
-                    "'%s' executable needs to be in PATH. %s" % (
-                        os.path.basename(self.path), self.start_error_message)
-                )
+                raise ChromeException(f"'{os.path.basename(self.path)}' executable needs to be in PATH. {self.start_error_message}")
             elif err.errno == errno.EACCES:
-                raise ChromeException(
-                    "'%s' executable may have wrong permissions. %s" % (
-                        os.path.basename(self.path), self.start_error_message)
-                )
+                raise ChromeException(f"'{os.path.basename(self.path)}' executable may have wrong permissions. {self.start_error_message}")
             else:
                 raise
         except Exception as e:
-            raise ChromeException(
-                "The executable %s needs to be available in the path. %s\n%s" %
-                (os.path.basename(self.path), self.start_error_message, str(e)))
+            raise ChromeException(f"The executable {os.path.basename(self.path)} needs to be available in the path. {self.start_error_message}\n{e}")
         count = 0
         while True:
             self.assert_process_still_running()
@@ -84,13 +98,19 @@ class Service(object):
             outs, errs = self.process.communicate(timeout=15)
             print("\nChrome STDOUT:\n" + outs.encode() + "\n\n")
             print("\nChrome STDERR:\n" + errs.encode() + "\n\n")
-            raise ChromeException(
-                'Service %s unexpectedly exited. Status code was: %s'
-                % (self.path, return_code)
-            )
+            raise ChromeException(f'Service {self.path} unexpectedly exited. Status code was: {return_code}')
 
     def is_connectable(self):
-        return is_connectable(self.port)
+        socket_ = None
+        try:
+            socket_ = socket.create_connection(('localhost', self.port), 1)
+            result = True
+        except socket.error:
+            result = False
+        finally:
+            if socket_:
+                socket_.close()
+        return result
 
     def send_remote_shutdown_command(self):
         try:
@@ -100,12 +120,10 @@ class Service(object):
             import urllib2 as url_request
             import urllib2
             URLError = urllib2.URLError
-
         try:
-            url_request.urlopen("%s/shutdown" % self.url)
+            url_request.urlopen(f"{self.url}/shutdown")
         except URLError:
             return
-
         for x in range(30):
             if not self.is_connectable():
                 break
@@ -121,9 +139,7 @@ class Service(object):
             pass
         try:
             if self.process:
-                for stream in [self.process.stdin,
-                               self.process.stdout,
-                               self.process.stderr]:
+                for stream in [self.process.stdin, self.process.stdout, self.process.stderr]:
                     try:
                         stream.close()
                     except AttributeError:
@@ -150,7 +166,7 @@ class Service(object):
         try:
             self.stop()
         except Exception:
-            pass       
+            pass
 
 class ChromeException(Exception):
     def __init__(self, msg=None, screen=None, stacktrace=None):
@@ -159,40 +175,12 @@ class ChromeException(Exception):
         self.stacktrace = stacktrace
 
     def __str__(self):
-        exception_msg = "Message: %s\n" % self.msg
+        exception_msg = f"Message: {self.msg}\n" 
         if self.screen is not None:
             exception_msg += "Screenshot: available via screen\n"
         if self.stacktrace is not None:
             stacktrace = "\n".join(self.stacktrace)
-            exception_msg += "Stacktrace:\n%s" % stacktrace
+            exception_msg += f"Stacktrace:\n{stacktrace}"
         return exception_msg
-
-def free_port():
-    free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    free_socket.bind(('0.0.0.0', 0))
-    free_socket.listen(5)
-    port = free_socket.getsockname()[1]
-    free_socket.close()
-    return port
-
-def find(name):
-    for root, dirs, files in os.walk("C:/"):
-        if name in files:
-            return os.path.join(root, name).replace("\\", "/")
-
-def is_connectable(port, host="localhost"):
-    socket_ = None
-    try:
-        socket_ = socket.create_connection((host, port), 1)
-        result = True
-    except socket.error:
-        result = False
-    finally:
-        if socket_:
-            socket_.close()
-    return result
-
-def join_host_port(host, port):
-    if ':' in host and not host.startswith('['):
-        return '[%s]:%d' % (host, port)
-    return '%s:%d' % (host, port)
+    
+    
