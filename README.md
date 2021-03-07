@@ -1,8 +1,12 @@
 # rbchrome
 
-[![PyPI](https://img.shields.io/pypi/pyversions/pyppeteer.svg)](https://github.com/anbuhckr/rbchrome)
+[![GitHub issues](https://img.shields.io/github/issues/anbuhckr/rbchrome)](https://github.com/anbuhckr/rbchrome/issues)
+[![GitHub forks](https://img.shields.io/github/forks/anbuhckr/rbchrome)](https://github.com/anbuhckr/rbchrome/network)
+[![GitHub stars](https://img.shields.io/github/stars/anbuhckr/rbchrome)](https://github.com/anbuhckr/rbchrome/stargazers)
+[![GitHub license](https://img.shields.io/github/license/anbuhckr/rbchrome)](https://github.com/anbuhckr/rbchrome/blob/master/LICENSE)
+![PyPI - Python Version](https://img.shields.io/badge/python-3.6%20%7C%203.7%20%7C%203.8-blue)
 
-A Python Package for the Google Chrome Dev Protocol
+Chrome DevTools Protocol Package for access lower level methods in Chrome.
 
 ## Table of Contents
 
@@ -16,48 +20,68 @@ A Python Package for the Google Chrome Dev Protocol
 To install rbchrome from GitHub:
 
 ```
-$ pip install -U git+https://github.com/anbuhckr/rbchrome.git
+$ pip3 install -U git+https://github.com/anbuhckr/rbchrome.git
+```
+
+or from source:
+
+```
+$ python3 setup.py install
 ```
 
 ## Getting Started
 
 ``` python
-import rbchrome
+#! /usr/bin/env python3
+
 import time
+from rbchrome.browser import Browser
 
 def request_will_be_sent(**kwargs):
     print(f"loading: {kwargs.get('request').get('url')}")
-
-options = [
-    "--disable-gpu",
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-]
-browser = rbchrome.Browser(headless=True, rb_options=options)
-browser.listen("Network.requestWillBeSent", request_will_be_sent)
-browser.start()
-browser.send("Network.enable")
-browser.send("Page.enable")
-try:
-    browser.get("https://anbuhckr.github.io/", reff=None, timeout=30)
-    time.sleep(5)
-except KeyboardInterrupt:
-    browser.stop()
-except rbchrome.TimeoutException:
-    print("Browser Timeout!!!")
-    pass
-except Exception as e:
-    print(e)
-    pass
-finally:
-    browser.stop()
+    
+def main()
+    # chrome options
+    options = [
+        "--disable-gpu",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+    ]
+    
+    # create browser instance with custom options
+    browser = Browser(opts=options)
+    
+    # register callback if you want
+    browser.on('Network.requestWillBeSent', request_will_be_sent)
+    
+    # start browser with custom method
+    try:
+        browser.start()
+        browser.send('Network.enable')
+        browser.send('Page.enable')
+        browser.send('Page.navigate', url="https://github.com/anbuhckr/aiocdp")
+        
+        # wait for loading
+        time.sleep(10)
+        
+    # handle exception
+    except Exception as e:
+        print(e)
+        pass
+        
+    # close browser
+    await browser.stop()
+    
+if __name__ == '__main__':
+    main()
 ```
-
 more methods or events could be found in
-[Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/tot/)
+[Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
 
 
 ## Ref
 
 * [pychrome](https://github.com/fate0/pychrome/)
 * [chrome-remote-interface](https://github.com/cyrus-and/chrome-remote-interface/)
+* [selenium](https://github.com/SeleniumHQ/selenium/tree/trunk/py/)
+* [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/)
