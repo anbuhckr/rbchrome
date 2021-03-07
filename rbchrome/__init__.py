@@ -1,11 +1,8 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
 
-from .browser import *
-from .cdp import *
-from .service import *
-from .exceptions import *
+from .browser import Browser
+from .service import Service
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
