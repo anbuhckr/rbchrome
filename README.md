@@ -59,7 +59,7 @@ def main()
         browser.start()
         browser.send('Network.enable')
         browser.send('Page.enable')
-        browser.send('Page.navigate', url="https://github.com/anbuhckr/aiocdp")
+        browser.send('Page.navigate', url="https://github.com/anbuhckr/rbchrome")
         
         # wait for loading
         time.sleep(10)
@@ -70,7 +70,7 @@ def main()
         pass
         
     # close browser
-    await browser.stop()
+    browser.stop()
     
 if __name__ == '__main__':
     main()
