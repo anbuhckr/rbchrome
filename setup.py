@@ -18,7 +18,7 @@ with open('rbchrome/__init__.py', 'rb') as f:
 
 
 requirements = [
-    'websocket-client>=0.44.0',    
+    'websocket-client==0.58.0',    
 ]
 
 setup(
