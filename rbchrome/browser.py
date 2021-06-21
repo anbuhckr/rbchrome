@@ -30,15 +30,21 @@ class Browser:
         self._handle_event_th.daemon = True
         
     def ws_endpoint(self):
-        with urlopen(f'{self.dev_url}/json/new?') as f:
+        ws_url = None
+        try:
+            f = urlopen(f'{self.dev_url}/json/new?')
             data = json.loads(f.read().decode())
             self.tab_id = data.get('id')
-            return data.get('webSocketDebuggerUrl')
+            ws_url = data.get('webSocketDebuggerUrl')
+        except:            
+            pass
+        return ws_url
         
     def close_tab(self):
-        with urlopen(f"{self.dev_url}/json/close/{self.tab_id}") as f:
-            data = f.read().decode()
-            return
+        try:
+            urlopen(f"{self.dev_url}/json/close/{self.tab_id}")
+        except:
+            pass        
         
     def ws_send(self, message):
         if 'id' not in message:
