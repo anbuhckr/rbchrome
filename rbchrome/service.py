@@ -38,7 +38,9 @@ class Service(object):
     def __init__(self, opts=[]):
         self.path = 'google-chrome'
         if 'nt' in os.name:
-            self.path = self.find()           
+            self.path = self.find()
+        elif 'posix' in os.name:
+            self.path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
         self.tmpdir = TemporaryDirectory()              
         self.port = self.free_port()
         self.service_args = DEFAULT_ARGS
