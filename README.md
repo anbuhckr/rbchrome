@@ -40,7 +40,7 @@ from rbchrome.browser import Browser
 def request_will_be_sent(**kwargs):
     print(f"loading: {kwargs.get('request').get('url')}")
     
-def main()
+def main():
     # chrome options
     options = [
         "--disable-gpu",
