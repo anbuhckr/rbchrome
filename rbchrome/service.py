@@ -149,12 +149,12 @@ class Service(object):
                 self.process.wait()
                 self.process.kill()
                 self.process = None
-                time.sleep(0.5)
-                try:
-                    self.tmpdir.cleanup()
-                except Exception:
-                    pass
+                time.sleep(0.5)                
         except OSError:
+            pass
+        try:
+            self.tmpdir.cleanup()
+        except:
             pass
 
     def __enter__(self):
