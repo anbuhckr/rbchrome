@@ -7,53 +7,54 @@ from subprocess import Popen, PIPE
 import time
 import socket
 from tempfile import TemporaryDirectory
+from urllib import request as url_request
 
-DEFAULT_ARGS = [
-    'about:blank',
-    '--disable-background-networking',
-    '--disable-background-timer-throttling',
-    '--disable-breakpad',
-    '--disable-browser-side-navigation',
-    '--disable-client-side-phishing-detection',
-    '--disable-default-apps',
-    '--disable-infobars',
-    '--disable-dev-shm-usage',
-    '--disable-extensions',
-    '--disable-features=site-per-process',
-    '--disable-hang-monitor',
-    '--disable-popup-blocking',
-    '--disable-prompt-on-repost',
-    '--disable-sync',
-    '--disable-translate',
-    '--metrics-recording-only',
-    '--no-first-run',
-    '--safebrowsing-disable-auto-update',    
-    '--password-store=basic',
-    '--use-mock-keychain',
-    '--ignore-ssl-errors',
-    '--ignore-certificate-errors',
-]
+URLError = url_request.URLError
 
 class Service(object):
+
     def __init__(self, opts=[]):
+        self.service_args = [
+            'about:blank',
+            '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-breakpad',
+            '--disable-browser-side-navigation',
+            '--disable-client-side-phishing-detection',
+            '--disable-default-apps',
+            '--disable-infobars',
+            '--disable-dev-shm-usage',
+            '--disable-extensions',
+            '--disable-features=site-per-process',
+            '--disable-hang-monitor',
+            '--disable-popup-blocking',
+            '--disable-prompt-on-repost',
+            '--disable-sync',
+            '--disable-translate',
+            '--metrics-recording-only',
+            '--no-first-run',
+            '--safebrowsing-disable-auto-update',
+            '--password-store=basic',
+            '--use-mock-keychain',
+            '--ignore-ssl-errors',
+            '--ignore-certificate-errors',
+        ]
         self.path = 'google-chrome'
         if platform.system() == 'Windows':
             self.path = self.find()
         elif platform.system() == 'Darwin':
             self.path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-        self.tmpdir = TemporaryDirectory()              
+        self.tmpdir = TemporaryDirectory()
         self.port = self.free_port()
-        self.service_args = DEFAULT_ARGS
-        self.service_args += opts      
-        self.service_args += [f'--user-data-dir={self.tmpdir.name}']            
+        self.service_args += opts
+        self.service_args += [f'--user-data-dir={self.tmpdir.name}']
         self.service_args += [f'--remote-debugging-port={self.port}']
         self.env = os.environ
         self.url = f"http://localhost:{self.port}"
-        start_error_message = ""
         self.process = None
-        self.start()        
+        self.start()
 
-    def find(self):        
+    def find(self):
         name = 'chrome.exe'
         for root, dirs, files in os.walk('C:/'):
             if name in files:
@@ -76,13 +77,13 @@ class Service(object):
             raise
         except OSError as err:
             if err.errno == errno.ENOENT:
-                raise ChromeException(f"'{os.path.basename(self.path)}' executable needs to be in PATH. {self.start_error_message}")
+                raise ChromeException(f"'{os.path.basename(self.path)}' executable needs to be in PATH.")
             elif err.errno == errno.EACCES:
-                raise ChromeException(f"'{os.path.basename(self.path)}' executable may have wrong permissions. {self.start_error_message}")
+                raise ChromeException(f"'{os.path.basename(self.path)}' executable may have wrong permissions.")
             else:
                 raise
         except Exception as e:
-            raise ChromeException(f"The executable {os.path.basename(self.path)} needs to be available in the path. {self.start_error_message}\n{e}")
+            raise ChromeException(f"The executable {os.path.basename(self.path)} needs to be available in the path.\n{e}")
         count = 0
         while True:
             self.assert_process_still_running()
@@ -115,13 +116,6 @@ class Service(object):
 
     def send_remote_shutdown_command(self):
         try:
-            from urllib import request as url_request
-            URLError = url_request.URLError
-        except ImportError:
-            import urllib2 as url_request
-            import urllib2
-            URLError = urllib2.URLError
-        try:
             url_request.urlopen(f"{self.url}/shutdown")
         except URLError:
             return
@@ -131,7 +125,7 @@ class Service(object):
             else:
                 time.sleep(1)
 
-    def stop(self):        
+    def stop(self):
         if self.process is None:
             return
         try:
@@ -149,7 +143,7 @@ class Service(object):
                 self.process.wait()
                 self.process.kill()
                 self.process = None
-                time.sleep(0.5)                
+                time.sleep(0.5)
         except OSError:
             pass
         try:
@@ -160,8 +154,8 @@ class Service(object):
     def __enter__(self):
         return self
     
-    def __exit__(self, *args):
-        self.__del__()    
+    def __exit__(self):
+        self.__del__()
         
     def __del__(self):
         try:
@@ -183,5 +177,3 @@ class ChromeException(Exception):
             stacktrace = "\n".join(self.stacktrace)
             exception_msg += f"Stacktrace:\n{stacktrace}"
         return exception_msg
-    
-    
