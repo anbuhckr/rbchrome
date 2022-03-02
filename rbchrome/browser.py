@@ -40,12 +40,6 @@ class Browser(object):
             pass
         return ws_url
         
-    def close_tab(self):
-        try:
-            urlopen(f"{self.dev_url}/json/close/{self.tab_id}")
-        except:
-            pass
-        
     def ws_send(self, message):
         if 'id' not in message:
             self._cur_id += 1
@@ -134,9 +128,9 @@ class Browser(object):
             raise Exception("Browser is not running")
         self.started = False
         self.stopped = True
-        if self.connected and self._ws:
+        if self._ws:
             self._ws.close()
-            self.close_tab()
+        if self.connected:
             self._recv_th.join()
             self._handle_event_th.join()
             self.connected = False
