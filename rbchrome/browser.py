@@ -1,21 +1,26 @@
 #! /usr/bin/env python3
 
+import asyncio
+import aiohttp
 import json
 import warnings
-import threading
-import queue
-import websocket
-
-from urllib.request import urlopen
+import websockets
+import os
 from .service import Service
+
+if 'nt' in os.name:
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+else:
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 __all__ = ["Browser"]
 
 class Browser(object):
-    
+
     def __init__(self, opts=[]):
         self.service = Service(opts)
-        self.dev_url = self.service.url
+        self.dev_url = None
         self.tab_id = None
         self._cur_id = 1000
         self.started = False
@@ -23,83 +28,69 @@ class Browser(object):
         self.connected = False
         self.event_handlers = {}
         self.method_results = {}
-        self.event_queue = queue.Queue()
-        self._recv_th = threading.Thread(target=self._recv_loop)
-        self._recv_th.daemon = True
-        self._handle_event_th = threading.Thread(target=self._handle_event_loop)
-        self._handle_event_th.daemon = True
+        self.event_queue = asyncio.Queue()
+        self.loop = asyncio.get_running_loop()
+        self.session = aiohttp.ClientSession(loop=self.loop)
 
-    def ws_endpoint(self):
-        ws_url = None
-        try:
-            f = urlopen(f'{self.dev_url}/json/new?')
-            data = json.loads(f.read().decode())
+    async def ws_endpoint(self):
+        async with self.session.get(f"{self.dev_url}/json/new?") as rp:
+            data = await rp.json()
             self.tab_id = data.get('id')
-            ws_url = data.get('webSocketDebuggerUrl')
-        except:
-            pass
-        return ws_url
-        
-    def close_tab(self):
-        try:
-            urlopen(f"{self.dev_url}/json/close/{self.tab_id}")
-        except:
-            pass
-        
-    def ws_send(self, message):
+            return data.get('webSocketDebuggerUrl')
+
+    async def ws_send(self, message):
         if 'id' not in message:
             self._cur_id += 1
             message['id'] = self._cur_id
         message_json = json.dumps(message)
         try:
-            self.method_results[message['id']] = queue.Queue()
-            self._ws.send(message_json)
+            queue = asyncio.Queue()
+            self.method_results[message['id']] = queue
+            await self._ws.send(message_json)
             while not self.stopped:
                 try:
-                    return self.method_results[message['id']].get(timeout=1)
-                except queue.Empty:
+                    return await asyncio.wait_for(queue.get(), 1)
+                except asyncio.TimeoutError:
                     continue
             raise Exception(f"User abort, call stop() when calling {message['method']}")
         finally:
-            self.method_results.pop(message['id'], None)
+            self.method_results.pop(message['id'])
 
-    def _recv_loop(self):
+    async def _recv_loop(self):
         while not self.stopped:
             try:
-                self._ws.settimeout(1)
-                message_json = self._ws.recv()
+                message_json = await self._ws.recv()
                 message = json.loads(message_json)
             except:
                 continue
             if "method" in message:
-                self.event_queue.put(message)
+                await self.event_queue.put(message)
             elif "id" in message:
                 if message["id"] in self.method_results:
-                    self.method_results[message['id']].put(message)
-            else:  
+                    await self.method_results[message['id']].put(message)
+            else:
                 warnings.warn(f"unknown message: {message}")
 
-    def _handle_event_loop(self):
+    async def _handle_event_loop(self):
         while not self.stopped:
             try:
-                event = self.event_queue.get(timeout=1)
-            except queue.Empty:
+                event = await self.event_queue.get()
+            except asyncio.QueueEmpty:
                 continue
             if event['method'] in self.event_handlers:
                 try:
-                    self.event_handlers[event['method']](**event['params'])
-                except Exception:
+                    await self.event_handlers[event['method']](**event['params'])
+                except Exception as e:
                     print(f"callback {event['method']} exception")
-            self.event_queue.task_done()
 
-    def send(self, _method, *args, **kwargs):
+    async def send(self, _method, *args, **kwargs):
         if not self.started:
             raise Exception("Cannot call method before it is started")
         if args:
             raise Exception("the params should be key=value format")
         if self.stopped:
             raise Exception("browser has been stopped")
-        result = self.ws_send({"method": _method, "params": kwargs})
+        result = await self.ws_send({"method": _method, "params": kwargs})
         if 'result' not in result and 'error' in result:
             warnings.warn(f"{_method} error: {result['error']['message']}")
             raise Exception(f"calling method: {_method} error: {result['error']['message']}")
@@ -113,49 +104,46 @@ class Browser(object):
         self.event_handlers[event] = callback
         return
 
-    def start(self):
+    async def start(self):
         if self.started:
             return
         self.stopped = False
         self.started = True
         self.connected = False
-        self._websocket_url = self.ws_endpoint()
-        self._ws = websocket.create_connection(self._websocket_url, enable_multithread=True)
-        if self._ws:
+        await self.service.start()
+        self.dev_url = self.service.url
+        self._websocket_url = await self.ws_endpoint()
+        self._ws = await websockets.connect(self._websocket_url, loop=self.loop, ping_interval=None)
+        if self._ws.open:
             self.connected = True
-            self._recv_th.start()
-            self._handle_event_th.start()
-        return
+            self._recv_task = asyncio.ensure_future(self._recv_loop(), loop=self.loop)
+            self._handle_event_task = asyncio.ensure_future(self._handle_event_loop(), loop=self.loop)
 
-    def stop(self):
+    async def stop(self):
         if self.stopped:
             return
         if not self.started:
             raise Exception("Browser is not running")
         self.started = False
         self.stopped = True
-        if self.connected and self._ws:
-            self._ws.close()
-            self.close_tab()
-            self._recv_th.join()
-            self._handle_event_th.join()
+        if self.connected and self._ws.open:
+            await self._ws.close()
+            self._recv_task.cancel()
+            self._handle_event_task.cancel()
+            for _ in range(self.event_queue.qsize()):
+                self.event_queue.put_nowait()
+                self.event_queue.task_done()
             self.connected = False
-        self.service.stop()
-        return
+        await self.service.stop()
+        await self.session.close()
 
     def __str__(self):
         return f'<Browser {self.dev_url}>'
 
     __repr__ = __str__
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
-    
-    def __exit__(self):
-        self.__del__()
-        
-    def __del__(self):
-        try:
-            self.stop()
-        except Exception:
-            pass
+
+    async def __aexit__(self):
+        await self.stop()
