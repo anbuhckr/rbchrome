@@ -20,7 +20,7 @@ Chrome DevTools Protocol Package for access lower level methods in Chrome.
 To install rbchrome from GitHub:
 
 ```
-$ pip3 install -U git+https://github.com/anbuhckr/rbchrome.git
+$ python3 -m pip install -U git+https://github.com/anbuhckr/rbchrome.git
 ```
 
 or from source:
