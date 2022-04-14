@@ -81,7 +81,10 @@ class Browser(object):
                 continue
             if event['method'] in self.event_handlers:
                 try:
-                    self.event_handlers[event['method']](**event['params'])
+                    if event['sessionId'] in self.event_handlers:
+                        self.event_handlers[event['sessionId']+'.'+event['method']](**event['params'])
+                    else:
+                        self.event_handlers['main.'+event['method']](**event['params'])
                 except Exception:
                     print(f"callback {event['method']} exception")
             self.event_queue.task_done()
@@ -99,12 +102,12 @@ class Browser(object):
             raise Exception(f"calling method: {_method} error: {result['error']['message']}")
         return result['result']
 
-    def on(self, event, callback):
+    def on(self, session, event, callback):
         if not callback:
             return self.event_handlers.pop(event, None)
         if not callable(callback):
             raise Exception("callback should be callable")
-        self.event_handlers[event] = callback
+        self.event_handlers[session+'.'+event] = callback
         return
 
     def start(self):
