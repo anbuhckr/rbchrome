@@ -79,14 +79,16 @@ class Browser(object):
                 event = self.event_queue.get(timeout=1)
             except queue.Empty:
                 continue
-            if event['method'] in self.event_handlers:
+            if 'sessionId' in event and f"{event['sessionId']}.{event['method']}" in self.event_handlers:
                 try:
-                    if event['sessionId'] in self.event_handlers:
-                        self.event_handlers[event['sessionId']+'.'+event['method']](**event['params'])
-                    else:
-                        self.event_handlers['main.'+event['method']](**event['params'])
-                except Exception:
-                    print(f"callback {event['method']} exception")
+                    self.event_handlers[f"{event['sessionId']}.{event['method']}"](**event['params'])
+                except:
+                    print(f"callback {event['sessionId']}.{event['method']} exception")
+            elif f"main.{event['method']}" in self.event_handlers:
+                try:
+                    self.event_handlers[f"main.{event['method']}"](**event['params'])
+                except:
+                    print(f"callback main.{event['method']} exception")
             self.event_queue.task_done()
 
     def send(self, session, _method, *args, **kwargs):
