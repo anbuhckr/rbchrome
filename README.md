@@ -34,7 +34,7 @@ $ python3 setup.py install
 ``` python
 #! /usr/bin/env python3
 
-import time
+import time, random
 from rbchrome.browser import Browser
 
 def android_ua():
