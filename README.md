@@ -80,9 +80,12 @@ def main():
         browser.send(None, 'Page.navigate', url="https://github.com/anbuhckr/rbchrome")
         
         # wait for loading
-        time.sleep(10)
-        
+        time.sleep(30)
+    
     # handle exception
+    except KeyboardInterrupt:
+        pass
+        
     except Exception as e:
         print(e)
         pass
