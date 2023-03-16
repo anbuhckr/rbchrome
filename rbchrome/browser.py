@@ -5,8 +5,8 @@ import warnings
 import threading
 import queue
 import websocket
+import requests
 
-from urllib.request import urlopen
 from .service import Service
 
 __all__ = ["Browser"]
@@ -30,15 +30,21 @@ class Browser(object):
         self._handle_event_th.daemon = True
 
     def ws_endpoint(self):
-        ws_url = None
         try:
-            f = urlopen(f'{self.dev_url}/json/new?')
-            data = json.loads(f.read().decode())
+            res = requests.get(f'{self.dev_url}/json/new?')
+            data = json.loads(res.text)
             self.tab_id = data.get('id')
-            ws_url = data.get('webSocketDebuggerUrl')
+            return data.get('webSocketDebuggerUrl')
         except:
             pass
-        return ws_url
+        try:
+            res = requests.put(f'{self.dev_url}/json/new?')
+            data = json.loads(res.text)
+            self.tab_id = data.get('id')
+            return data.get('webSocketDebuggerUrl')
+        except:
+            pass
+        return None
         
     def ws_send(self, message):
         if 'id' not in message:
