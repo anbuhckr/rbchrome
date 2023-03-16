@@ -37,6 +37,7 @@ class Service(object):
             '--use-mock-keychain',
             '--ignore-ssl-errors',
             '--ignore-certificate-errors',
+            '--remote-allow-origins=*',
         ]
         self.path = 'google-chrome'
         if platform.system() == 'Windows':
