@@ -8,6 +8,7 @@ import time
 import socket
 from tempfile import TemporaryDirectory
 from urllib import request as url_request
+from pathlib import Path
 
 URLError = url_request.URLError
 
@@ -24,7 +25,6 @@ class Service(object):
             '--disable-default-apps',
             '--disable-infobars',
             '--disable-dev-shm-usage',
-            '--disable-extensions',
             '--disable-features=IsolateOrigins,site-per-proces',
             '--disable-hang-monitor',
             '--disable-prompt-on-repost',
@@ -55,10 +55,13 @@ class Service(object):
         self.start()
 
     def find(self):
-        name = 'chrome.exe'
-        for root, dirs, files in os.walk('C:/'):
-            if name in files:
-                return os.path.join(root, name).replace('\\', '/')
+        path = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        if not os.path.isfile(path):
+            path = "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+        if not os.path.isfile(path):
+            home = str(Path.home())
+            path = home + "\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe"
+        return path
 
     def free_port(self):
         free_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
